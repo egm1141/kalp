@@ -16,18 +16,19 @@
       font-family: sans-serif;
     }
     canvas { display: block; max-width: 100%; }
-    #inputWrap { margin-top: 18px; width: 320px; max-width: 90vw; }
+    #inputWrap { margin-top: 14px; width: 340px; max-width: 90vw; }
     #textInput {
       width: 100%;
-      background: #1a1118;
+      background: #1a0f18;
       border: 1px solid #3a2838;
-      border-radius: 20px;
+      border-radius: 24px;
       color: #fff;
-      font-size: 14px;
-      padding: 10px 20px;
+      font-size: 15px;
+      padding: 11px 22px;
       outline: none;
       text-align: center;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
+      box-sizing: border-box;
       transition: border-color 0.3s;
     }
     #textInput:focus { border-color: #ff6eb0; }
@@ -35,17 +36,25 @@
   </style>
 </head>
 <body>
-  <canvas id="c" width="360" height="340"></canvas>
+  <canvas id="c" width="420" height="370"></canvas>
   <div id="inputWrap">
-    <input id="textInput" type="text" placeholder="Bir şey yaz..." maxlength="12" />
+    <input id="textInput" type="text" placeholder="Bir şey yaz..." maxlength="14" />
   </div>
 
   <script>
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    const COLORS = ['#ff6eb0','#ff8ec4','#ffb3d9','#ff4d94','#cc3377','#ff99cc','#ff55a3'];
-    const MAX_P = 1800;
+
+    const COLORS = [
+      ['#ff6eb0','#ff4d94','#ff88bb'],
+      ['#ff8ec4','#ff5fa0','#ffaad4'],
+      ['#cc3377','#ff4d94','#ff77aa'],
+      ['#ff99cc','#ff66aa','#ffbbdd'],
+      ['#ff55a3','#ff2288','#ff88c8'],
+      ['#e0306a','#ff1177','#ff6699'],
+    ];
+    const MAX_P = 2200;
 
     let particles = [];
     let targetPositions = [];
@@ -57,7 +66,7 @@
 
     function getHeartPoints(n) {
       const pts = [];
-      const cx = W/2, cy = H/2 - 20, scale = 10.5;
+      const cx = W/2, cy = H/2 - 10, scale = 11.5;
       for (let i = 0; i < n; i++) {
         const t = (i / n) * Math.PI * 2;
         pts.push({ x: cx + heartX(t) * scale, y: cy + heartY(t) * scale });
@@ -65,25 +74,61 @@
       return pts;
     }
 
-    function getTextPoints(text, n) {
+    function get3DTextPoints(text, n) {
       const off = document.createElement('canvas');
       off.width = W; off.height = H;
       const oc = off.getContext('2d');
-      const fsize = text.length <= 4 ? 90 : text.length <= 7 ? 72 : text.length <= 10 ? 58 : 46;
-      oc.fillStyle = '#fff';
-      oc.font = `900 ${fsize}px Arial`;
+
+      const fsize = text.length <= 3 ? 96 : text.length <= 5 ? 82 : text.length <= 7 ? 68 : text.length <= 10 ? 54 : 42;
+
+      // 3D shadow layers
+      const depth = 7;
+      for (let d = depth; d >= 1; d--) {
+        const t = d / depth;
+        oc.fillStyle = `rgba(${Math.round(80+t*60)},${Math.round(10+t*10)},${Math.round(40+t*30)},${0.18+t*0.12})`;
+        oc.font = `900 ${fsize}px Arial Black, Arial, sans-serif`;
+        oc.textAlign = 'center';
+        oc.textBaseline = 'middle';
+        oc.fillText(text, W/2 + d*1.2, H/2 + d*1.1);
+      }
+
+      // Bright main face with gradient
+      const grad = oc.createLinearGradient(0, H/2 - fsize/2, 0, H/2 + fsize/2);
+      grad.addColorStop(0, '#ffccee');
+      grad.addColorStop(0.4, '#ff77bb');
+      grad.addColorStop(1, '#cc2266');
+      oc.fillStyle = grad;
+      oc.font = `900 ${fsize}px Arial Black, Arial, sans-serif`;
       oc.textAlign = 'center';
       oc.textBaseline = 'middle';
       oc.fillText(text, W/2, H/2);
+
+      // Highlight streak
+      const hgrad = oc.createLinearGradient(0, H/2 - fsize/2, 0, H/2 - fsize/2 + fsize*0.35);
+      hgrad.addColorStop(0, 'rgba(255,255,255,0.55)');
+      hgrad.addColorStop(1, 'rgba(255,255,255,0)');
+      oc.fillStyle = hgrad;
+      oc.fillText(text, W/2, H/2);
+
       const data = oc.getImageData(0, 0, W, H).data;
       const pts = [];
-      for (let y = 0; y < H; y += 4)
-        for (let x = 0; x < W; x += 4)
-          if (data[(y*W+x)*4+3] > 128)
-            pts.push({ x: x+(Math.random()-.5)*2, y: y+(Math.random()-.5)*2 });
+      const step = 3;
+      for (let y = 0; y < H; y += step)
+        for (let x = 0; x < W; x += step) {
+          const i = (y * W + x) * 4;
+          if (data[i+3] > 80) {
+            const bright = (data[i] + data[i+1] + data[i+2]) / 3;
+            pts.push({
+              x: x + (Math.random() - .5) * 1.5,
+              y: y + (Math.random() - .5) * 1.5,
+              bright
+            });
+          }
+        }
+
       if (!pts.length) return getHeartPoints(n);
-      while (pts.length < n) pts.push(pts[Math.floor(Math.random()*pts.length)]);
-      return pts.sort(()=>Math.random()-.5).slice(0, n);
+      while (pts.length < n) pts.push(pts[Math.floor(Math.random() * pts.length)]);
+      return pts.sort(() => Math.random() - .5).slice(0, n);
     }
 
     function initParticles() {
@@ -91,35 +136,40 @@
       particles = [];
       for (let i = 0; i < MAX_P; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = Math.random() * 60 + 80;
+        const r = Math.random() * 80 + 60;
+        const cset = COLORS[Math.floor(Math.random() * COLORS.length)];
         particles.push({
-          x: W/2 + Math.cos(a)*r,
-          y: H/2 + Math.sin(a)*r,
-          tx: hpts[i].x, ty: hpts[i].y,
+          x: W/2 + Math.cos(a) * r,
+          y: H/2 + Math.sin(a) * r,
           vx: 0, vy: 0,
-          color: COLORS[Math.floor(Math.random()*COLORS.length)],
-          size: Math.random()*1.5+0.5,
-          alpha: Math.random()*0.6+0.4
+          colors: cset,
+          size: Math.random() * 1.8 + 0.5,
+          alpha: Math.random() * 0.55 + 0.45,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.02 + Math.random() * 0.015,
         });
       }
-      targetPositions = hpts;
+      targetPositions = hpts.map(p => ({ ...p, bright: 128 }));
     }
 
     function setTargetsHeart() {
-      targetPositions = getHeartPoints(MAX_P);
+      targetPositions = getHeartPoints(MAX_P).map(p => ({ ...p, bright: 128 }));
       mode = 'heart';
     }
 
     function setTargetsText(text) {
-      targetPositions = getTextPoints(text, MAX_P);
+      targetPositions = get3DTextPoints(text, MAX_P);
       mode = 'text';
     }
 
+    let tick = 0;
     let lastTime = 0;
     function animate(ts) {
       requestAnimationFrame(animate);
-      if (ts - lastTime < 16) return;
+      if (ts - lastTime < 15) return;
       lastTime = ts;
+      tick++;
+
       ctx.clearRect(0, 0, W, H);
       ctx.fillStyle = '#0a0008';
       ctx.fillRect(0, 0, W, H);
@@ -128,31 +178,49 @@
         const p = particles[i];
         const tgt = targetPositions[i];
         const dx = tgt.x - p.x, dy = tgt.y - p.y;
-        p.vx += dx * 0.08; p.vy += dy * 0.08;
-        p.vx *= 0.72; p.vy *= 0.72;
+        p.vx += dx * 0.085; p.vy += dy * 0.085;
+        p.vx *= 0.70; p.vy *= 0.70;
         p.x += p.vx; p.y += p.vy;
+
+        const phase = p.phase + tick * p.speed;
+        const cIdx = Math.floor(((Math.sin(phase) + 1) / 2) * p.colors.length);
+        const col = p.colors[Math.min(cIdx, p.colors.length - 1)];
+
+        const bright = tgt.bright || 128;
+        const sizeBoost = mode === 'text' ? (bright / 255) * 0.8 : 0;
+        const sz = p.size + sizeBoost;
+
+        if (mode === 'text' && bright > 180) {
+          ctx.globalAlpha = Math.min(1, p.alpha + 0.25);
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(p.x - 0.5, p.y - 0.5, sz * 0.55, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
         ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
+        ctx.fillStyle = col;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
         ctx.fill();
       }
+
       ctx.globalAlpha = 1;
 
       if (mode === 'heart') {
-        const grd = ctx.createRadialGradient(W/2, H/2-20, 10, W/2, H/2-20, 130);
-        grd.addColorStop(0, 'rgba(255,80,150,0.10)');
-        grd.addColorStop(1, 'rgba(255,80,150,0)');
-        ctx.fillStyle = grd;
+        const g = ctx.createRadialGradient(W/2, H/2-10, 8, W/2, H/2-10, 140);
+        g.addColorStop(0, 'rgba(255,80,150,0.09)');
+        g.addColorStop(1, 'rgba(255,80,150,0)');
+        ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, H);
       }
     }
 
-    let debounceTimer;
+    let debTimer;
     inputEl.addEventListener('input', () => {
       const val = inputEl.value.trim();
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+      clearTimeout(debTimer);
+      debTimer = setTimeout(() => {
         val.length === 0 ? setTargetsHeart() : setTargetsText(val);
       }, 300);
     });
