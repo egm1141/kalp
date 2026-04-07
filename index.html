@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parçacık Kalp Efekti</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0008;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: sans-serif;
+    }
+    canvas { display: block; max-width: 100%; }
+    #inputWrap { margin-top: 18px; width: 320px; max-width: 90vw; }
+    #textInput {
+      width: 100%;
+      background: #1a1118;
+      border: 1px solid #3a2838;
+      border-radius: 20px;
+      color: #fff;
+      font-size: 14px;
+      padding: 10px 20px;
+      outline: none;
+      text-align: center;
+      letter-spacing: 1px;
+      transition: border-color 0.3s;
+    }
+    #textInput:focus { border-color: #ff6eb0; }
+    #textInput::placeholder { color: #5a3050; }
+  </style>
+</head>
+<body>
+  <canvas id="c" width="360" height="340"></canvas>
+  <div id="inputWrap">
+    <input id="textInput" type="text" placeholder="Bir şey yaz..." maxlength="12" />
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const COLORS = ['#ff6eb0','#ff8ec4','#ffb3d9','#ff4d94','#cc3377','#ff99cc','#ff55a3'];
+    const MAX_P = 1800;
+
+    let particles = [];
+    let targetPositions = [];
+    let mode = 'heart';
+    const inputEl = document.getElementById('textInput');
+
+    function heartX(t) { return 16 * Math.pow(Math.sin(t), 3); }
+    function heartY(t) { return -(13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t)); }
+
+    function getHeartPoints(n) {
+      const pts = [];
+      const cx = W/2, cy = H/2 - 20, scale = 10.5;
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * Math.PI * 2;
+        pts.push({ x: cx + heartX(t) * scale, y: cy + heartY(t) * scale });
+      }
+      return pts;
+    }
+
+    function getTextPoints(text, n) {
+      const off = document.createElement('canvas');
+      off.width = W; off.height = H;
+      const oc = off.getContext('2d');
+      const fsize = text.length <= 4 ? 90 : text.length <= 7 ? 72 : text.length <= 10 ? 58 : 46;
+      oc.fillStyle = '#fff';
+      oc.font = `900 ${fsize}px Arial`;
+      oc.textAlign = 'center';
+      oc.textBaseline = 'middle';
+      oc.fillText(text, W/2, H/2);
+      const data = oc.getImageData(0, 0, W, H).data;
+      const pts = [];
+      for (let y = 0; y < H; y += 4)
+        for (let x = 0; x < W; x += 4)
+          if (data[(y*W+x)*4+3] > 128)
+            pts.push({ x: x+(Math.random()-.5)*2, y: y+(Math.random()-.5)*2 });
+      if (!pts.length) return getHeartPoints(n);
+      while (pts.length < n) pts.push(pts[Math.floor(Math.random()*pts.length)]);
+      return pts.sort(()=>Math.random()-.5).slice(0, n);
+    }
+
+    function initParticles() {
+      const hpts = getHeartPoints(MAX_P);
+      particles = [];
+      for (let i = 0; i < MAX_P; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * 60 + 80;
+        particles.push({
+          x: W/2 + Math.cos(a)*r,
+          y: H/2 + Math.sin(a)*r,
+          tx: hpts[i].x, ty: hpts[i].y,
+          vx: 0, vy: 0,
+          color: COLORS[Math.floor(Math.random()*COLORS.length)],
+          size: Math.random()*1.5+0.5,
+          alpha: Math.random()*0.6+0.4
+        });
+      }
+      targetPositions = hpts;
+    }
+
+    function setTargetsHeart() {
+      targetPositions = getHeartPoints(MAX_P);
+      mode = 'heart';
+    }
+
+    function setTargetsText(text) {
+      targetPositions = getTextPoints(text, MAX_P);
+      mode = 'text';
+    }
+
+    let lastTime = 0;
+    function animate(ts) {
+      requestAnimationFrame(animate);
+      if (ts - lastTime < 16) return;
+      lastTime = ts;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0a0008';
+      ctx.fillRect(0, 0, W, H);
+
+      for (let i = 0; i < MAX_P; i++) {
+        const p = particles[i];
+        const tgt = targetPositions[i];
+        const dx = tgt.x - p.x, dy = tgt.y - p.y;
+        p.vx += dx * 0.08; p.vy += dy * 0.08;
+        p.vx *= 0.72; p.vy *= 0.72;
+        p.x += p.vx; p.y += p.vy;
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      if (mode === 'heart') {
+        const grd = ctx.createRadialGradient(W/2, H/2-20, 10, W/2, H/2-20, 130);
+        grd.addColorStop(0, 'rgba(255,80,150,0.10)');
+        grd.addColorStop(1, 'rgba(255,80,150,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    let debounceTimer;
+    inputEl.addEventListener('input', () => {
+      const val = inputEl.value.trim();
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        val.length === 0 ? setTargetsHeart() : setTargetsText(val);
+      }, 300);
+    });
+
+    initParticles();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
