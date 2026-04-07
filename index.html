@@ -16,7 +16,7 @@
       font-family: sans-serif;
     }
     canvas { display: block; max-width: 100%; }
-    #inputWrap { margin-top: 14px; width: 340px; max-width: 90vw; }
+    #inputWrap { margin-top: 14px; width: 380px; max-width: 90vw; }
     #textInput {
       width: 100%;
       background: #1a0f18;
@@ -36,7 +36,7 @@
   </style>
 </head>
 <body>
-  <canvas id="c" width="420" height="370"></canvas>
+  <canvas id="c" width="520" height="420"></canvas>
   <div id="inputWrap">
     <input id="textInput" type="text" placeholder="Bir şey yaz..." maxlength="14" />
   </div>
@@ -54,7 +54,7 @@
       ['#ff55a3','#ff2288','#ff88c8'],
       ['#e0306a','#ff1177','#ff6699'],
     ];
-    const MAX_P = 2200;
+    const MAX_P = 6000;
 
     let particles = [];
     let targetPositions = [];
@@ -66,10 +66,10 @@
 
     function getHeartPoints(n) {
       const pts = [];
-      const cx = W/2, cy = H/2 - 10, scale = 11.5;
+      const cx = W/2, cy = H/2 - 10, scale = 13.5;
       for (let i = 0; i < n; i++) {
         const t = (i / n) * Math.PI * 2;
-        pts.push({ x: cx + heartX(t) * scale, y: cy + heartY(t) * scale });
+        pts.push({ x: cx + heartX(t) * scale, y: cy + heartY(t) * scale, bright: 128 });
       }
       return pts;
     }
@@ -79,24 +79,23 @@
       off.width = W; off.height = H;
       const oc = off.getContext('2d');
 
-      const fsize = text.length <= 3 ? 96 : text.length <= 5 ? 82 : text.length <= 7 ? 68 : text.length <= 10 ? 54 : 42;
+      const fsize = text.length <= 2 ? 160 : text.length <= 4 ? 130 : text.length <= 6 ? 105 : text.length <= 9 ? 82 : text.length <= 12 ? 66 : 54;
 
       // 3D shadow layers
-      const depth = 7;
+      const depth = 8;
       for (let d = depth; d >= 1; d--) {
-        const t = d / depth;
-        oc.fillStyle = `rgba(${Math.round(80+t*60)},${Math.round(10+t*10)},${Math.round(40+t*30)},${0.18+t*0.12})`;
+        oc.fillStyle = `rgba(120,20,60,${0.13 + (d/depth)*0.10})`;
         oc.font = `900 ${fsize}px Arial Black, Arial, sans-serif`;
         oc.textAlign = 'center';
         oc.textBaseline = 'middle';
-        oc.fillText(text, W/2 + d*1.2, H/2 + d*1.1);
+        oc.fillText(text, W/2 + d*1.3, H/2 + d*1.2);
       }
 
-      // Bright main face with gradient
+      // Main face gradient
       const grad = oc.createLinearGradient(0, H/2 - fsize/2, 0, H/2 + fsize/2);
-      grad.addColorStop(0, '#ffccee');
-      grad.addColorStop(0.4, '#ff77bb');
-      grad.addColorStop(1, '#cc2266');
+      grad.addColorStop(0, '#ffddee');
+      grad.addColorStop(0.35, '#ff88cc');
+      grad.addColorStop(1, '#bb1155');
       oc.fillStyle = grad;
       oc.font = `900 ${fsize}px Arial Black, Arial, sans-serif`;
       oc.textAlign = 'center';
@@ -104,25 +103,22 @@
       oc.fillText(text, W/2, H/2);
 
       // Highlight streak
-      const hgrad = oc.createLinearGradient(0, H/2 - fsize/2, 0, H/2 - fsize/2 + fsize*0.35);
-      hgrad.addColorStop(0, 'rgba(255,255,255,0.55)');
+      const hgrad = oc.createLinearGradient(0, H/2 - fsize/2, 0, H/2 - fsize/2 + fsize*0.38);
+      hgrad.addColorStop(0, 'rgba(255,255,255,0.60)');
       hgrad.addColorStop(1, 'rgba(255,255,255,0)');
       oc.fillStyle = hgrad;
       oc.fillText(text, W/2, H/2);
 
       const data = oc.getImageData(0, 0, W, H).data;
       const pts = [];
-      const step = 3;
-      for (let y = 0; y < H; y += step)
-        for (let x = 0; x < W; x += step) {
+
+      // Step=2 → çok daha sık örnekleme = net yazı
+      for (let y = 0; y < H; y += 2)
+        for (let x = 0; x < W; x += 2) {
           const i = (y * W + x) * 4;
-          if (data[i+3] > 80) {
+          if (data[i+3] > 60) {
             const bright = (data[i] + data[i+1] + data[i+2]) / 3;
-            pts.push({
-              x: x + (Math.random() - .5) * 1.5,
-              y: y + (Math.random() - .5) * 1.5,
-              bright
-            });
+            pts.push({ x: x + (Math.random()-.5)*0.8, y: y + (Math.random()-.5)*0.8, bright });
           }
         }
 
@@ -136,24 +132,24 @@
       particles = [];
       for (let i = 0; i < MAX_P; i++) {
         const a = Math.random() * Math.PI * 2;
-        const r = Math.random() * 80 + 60;
+        const r = Math.random() * 100 + 60;
         const cset = COLORS[Math.floor(Math.random() * COLORS.length)];
         particles.push({
           x: W/2 + Math.cos(a) * r,
           y: H/2 + Math.sin(a) * r,
           vx: 0, vy: 0,
           colors: cset,
-          size: Math.random() * 1.8 + 0.5,
-          alpha: Math.random() * 0.55 + 0.45,
+          size: Math.random() * 1.0 + 0.3,
+          alpha: Math.random() * 0.5 + 0.5,
           phase: Math.random() * Math.PI * 2,
-          speed: 0.02 + Math.random() * 0.015,
+          speed: 0.018 + Math.random() * 0.012,
         });
       }
-      targetPositions = hpts.map(p => ({ ...p, bright: 128 }));
+      targetPositions = hpts;
     }
 
     function setTargetsHeart() {
-      targetPositions = getHeartPoints(MAX_P).map(p => ({ ...p, bright: 128 }));
+      targetPositions = getHeartPoints(MAX_P);
       mode = 'heart';
     }
 
@@ -162,8 +158,8 @@
       mode = 'text';
     }
 
-    let tick = 0;
-    let lastTime = 0;
+    let tick = 0, lastTime = 0;
+
     function animate(ts) {
       requestAnimationFrame(animate);
       if (ts - lastTime < 15) return;
@@ -178,8 +174,8 @@
         const p = particles[i];
         const tgt = targetPositions[i];
         const dx = tgt.x - p.x, dy = tgt.y - p.y;
-        p.vx += dx * 0.085; p.vy += dy * 0.085;
-        p.vx *= 0.70; p.vy *= 0.70;
+        p.vx += dx * 0.10; p.vy += dy * 0.10;
+        p.vx *= 0.68; p.vy *= 0.68;
         p.x += p.vx; p.y += p.vy;
 
         const phase = p.phase + tick * p.speed;
@@ -187,29 +183,28 @@
         const col = p.colors[Math.min(cIdx, p.colors.length - 1)];
 
         const bright = tgt.bright || 128;
-        const sizeBoost = mode === 'text' ? (bright / 255) * 0.8 : 0;
-        const sz = p.size + sizeBoost;
 
-        if (mode === 'text' && bright > 180) {
-          ctx.globalAlpha = Math.min(1, p.alpha + 0.25);
-          ctx.fillStyle = '#fff';
+        // Parlak noktalara küçük beyaz highlight
+        if (mode === 'text' && bright > 170) {
+          ctx.globalAlpha = Math.min(1, p.alpha + 0.3);
+          ctx.fillStyle = 'rgba(255,220,240,0.9)';
           ctx.beginPath();
-          ctx.arc(p.x - 0.5, p.y - 0.5, sz * 0.55, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, p.size * 0.6, 0, Math.PI * 2);
           ctx.fill();
         }
 
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = col;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.globalAlpha = 1;
 
       if (mode === 'heart') {
-        const g = ctx.createRadialGradient(W/2, H/2-10, 8, W/2, H/2-10, 140);
-        g.addColorStop(0, 'rgba(255,80,150,0.09)');
+        const g = ctx.createRadialGradient(W/2, H/2-10, 8, W/2, H/2-10, 160);
+        g.addColorStop(0, 'rgba(255,80,150,0.08)');
         g.addColorStop(1, 'rgba(255,80,150,0)');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, H);
@@ -222,7 +217,7 @@
       clearTimeout(debTimer);
       debTimer = setTimeout(() => {
         val.length === 0 ? setTargetsHeart() : setTargetsText(val);
-      }, 300);
+      }, 350);
     });
 
     initParticles();
